@@ -10,9 +10,11 @@
   Copyright Contributors to the Zowe Project.
 */
 
-import { AfterViewInit, OnDestroy, Component, ElementRef, Input, ViewChild, Inject, Optional } from '@angular/core';
+import { AfterViewInit, Component, ElementRef, ViewChild, Inject, Optional } from '@angular/core';
 import {HttpClient} from '@angular/common/http';
 import {Observable} from 'rxjs';
+
+import { FormGroup, FormControl } from '@angular/forms';
 
 import { Angular2InjectionTokens, Angular2PluginWindowActions, Angular2PluginViewportEvents, ContextMenuItem } from 'pluginlib/inject-resources';
 
@@ -77,25 +79,34 @@ export class AppComponent implements AfterViewInit {
   @ViewChild('terminalParent')
   terminalParentElementRef: ElementRef;
   terminal: Terminal;
-  host: string;
-  port: number;
-  securityType: string;
+  name = new FormControl('');
+  host = new FormControl('');
+  port = new FormControl<Number>(0);
+  securityType = new FormControl('');
   connectionSettings: any;
   errorMessage: string = '';
-  terminalDivStyle: any;
+  terminalDivStyle: any = {};
   showMenu: boolean;
   private terminalHeightOffset: number = 0;
   private currentErrors: ErrorState = new ErrorState();
   disableButton: boolean;
   private savedSettings: TerminalConfig;
+  interval: any;
+  timer: any;
+
+  // terminalForm: any = new FormGroup({
+  //   host: new FormControl(''),
+  //   port: new FormControl(''),
+  //   securityType: new FormControl('')
+  // });
 
   constructor(
-    private http: HttpClient,
     @Inject(Angular2InjectionTokens.LOGGER) private log: ZLUX.ComponentLogger,
     @Inject(Angular2InjectionTokens.PLUGIN_DEFINITION) private pluginDefinition: ZLUX.ContainerPluginDefinition,
     @Inject(Angular2InjectionTokens.VIEWPORT_EVENTS) private viewportEvents: Angular2PluginViewportEvents,
     @Optional() @Inject(Angular2InjectionTokens.WINDOW_ACTIONS) private windowActions: Angular2PluginWindowActions,
     @Inject(Angular2InjectionTokens.LAUNCH_METADATA) private launchMetadata: any,
+    @Inject(HttpClient) private http: HttpClient
   ) {
     this.log.debug("Component Constructor");
     this.log.info('Recvd launch metadata='+JSON.stringify(launchMetadata));
@@ -104,8 +115,8 @@ export class AppComponent implements AfterViewInit {
       case "connect":
         if (launchMetadata.data.connectionSettings) {
           let cs = launchMetadata.data.connectionSettings;
-          this.host = cs.host;
-          this.port = cs.port;
+            this.host.setValue(cs.host);
+            this.port.setValue(cs.port);
           this.connectionSettings = cs;
         } else {
 
@@ -117,9 +128,14 @@ export class AppComponent implements AfterViewInit {
     this.adjustTerminal(TOGGLE_MENU_BUTTON_PX);
 
     //defaulting initializations
-    if (!this.host) this.host = "localhost";
-    if (!this.port) this.port = 23;
-    if (!this.securityType) this.securityType = "0";
+    if (!this.host.value) this.host.setValue("localhost");
+    if (!this.port.value) this.port.setValue(23);
+    if (!this.securityType.value) this.securityType.setValue("0");
+
+
+    setInterval(() => {
+      this.timer = new Date();
+    }, 1000);
   }
 
   ngOnInit(): void {
@@ -132,6 +148,11 @@ export class AppComponent implements AfterViewInit {
         resolve();
       });
     });
+
+    // this.interval = setInterval(() => {
+    //   console.log('manual detectChanges');
+    //   this.ref.markForCheck();
+    // }, 500);
   }
 
   ngAfterViewInit(): void {
@@ -175,19 +196,19 @@ export class AppComponent implements AfterViewInit {
       this.loadConfig().subscribe((config: ConfigServiceTerminalConfig) => {
         if (config.contents.security) {
           if (config.contents.security.type === "ssh") {
-            this.securityType = "1";
+            this.securityType.setValue("1");
           } else if (config.contents.security.type === "telnet") {
-            this.securityType = "0";
+            this.securityType.setValue("0");
           }
         }
-        this.host = config.contents.host;
-        this.port = config.contents.port;
+        this.host.setValue(config.contents.host);
+        this.port.setValue(config.contents.port);
         this.checkZssProxy().then(() => {
           this.connectionSettings = {
-            host: this.host,
-            port: this.port,
+            host: this.host.value,
+            port: this.port.value,
             security: {
-              type: Number(this.securityType)
+              type: Number(this.securityType.value)
             }
           }
         this.connectAndSetTitle(rendererSettings, this.connectionSettings);
@@ -208,6 +229,7 @@ export class AppComponent implements AfterViewInit {
 
   ngOnDestroy(): void {
     this.terminal.close();
+    // clearInterval(this.interval);
   }
 
   private onWSError(error: TerminalWebsocketError): void {
@@ -305,16 +327,16 @@ export class AppComponent implements AfterViewInit {
 
   checkZssProxy(): Promise<any> {
     return new Promise((resolve, reject) => {
-      if (this.host === "") {
+      if (this.host.value === "") {
         this.loadZssSettings().subscribe((zssSettings: ZssConfig) => {
-          this.host = zssSettings.zssServerHostName;
-          resolve(this.host);
+          this.host.setValue(zssSettings.zssServerHostName);
+          resolve(this.host.value);
         }, () => {
-          this.setError(ErrorType.host, "Invalid Hostname: \"" + this.host + "\".")
-          reject(this.host)
+          this.setError(ErrorType.host, "Invalid Hostname: \"" + this.host.value + "\".")
+          reject(this.host.value)
         });
       } else {
-        resolve(this.host);
+        resolve(this.host.value);
       }
     });
   }
@@ -330,10 +352,10 @@ export class AppComponent implements AfterViewInit {
           }
         },
         {
-          host: this.host,
-          port: this.port,
+          host: this.host.value,
+          port: this.port.value,
           security: {
-            type: Number(this.securityType)
+            type: Number(this.securityType.value)
           }
         });
     }
@@ -370,16 +392,16 @@ export class AppComponent implements AfterViewInit {
     }
   }
 
-  validatePort(): void {
-    if (this.port < 0 || this.port > 65535 || !Number.isInteger(this.port)) {
+  validatePort(port: number): void {
+    if (port < 0 || port > 65535 || !Number.isInteger(port)) {
       this.setError(ErrorType.port, `Port missing or invalid`);
     } else {
       this.clearError(ErrorType.port);
     }
   }
 
-  validateHost(): void {
-    if (!this.host) {
+  validateHost(host: string): void {
+    if (!host) {
       this.setError(ErrorType.host, `Host missing or invalid`);
     } else {
       this.clearError(ErrorType.host);
@@ -397,14 +419,14 @@ export class AppComponent implements AfterViewInit {
 
 
   saveSettings() {
-    let securityType = this.securityType == "1" ? "ssh" : "telnet";
+    let securityType = this.securityType.value == "1" ? "ssh" : "telnet";
     this.http.put(ZoweZLUX.uriBroker.pluginConfigForScopeUri(this.pluginDefinition.getBasePlugin(), 'user', 'sessions', '_defaultVT.json'),
       {
         security: {
           type: securityType
         },
-        port: this.port,
-        host: this.host,
+        port: this.port.value,
+        host: this.host.value,
       }
     ).subscribe((res) => this.log.debug('Save returned'));
   }

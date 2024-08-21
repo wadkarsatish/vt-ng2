@@ -13,7 +13,7 @@
 var path = require('path');
 var CopyWebpackPlugin = require('copy-webpack-plugin');
 const CompressionPlugin = require('compression-webpack-plugin');
-const baseConfig = require(path.resolve(process.env.MVD_DESKTOP_DIR, 'plugin-config/webpack.base.js'));
+const baseConfig = require(path.resolve(process.env.MVD_DESKTOP_DIR, 'plugin-config/webpack5.base.js'));
 
 
 if (process.env.MVD_DESKTOP_DIR == null) {
@@ -21,6 +21,7 @@ if (process.env.MVD_DESKTOP_DIR == null) {
 }
 
 var config = {
+  'devtool': 'source-map',
   'entry': [
     path.resolve(__dirname, './src/plugin.ts')
   ],

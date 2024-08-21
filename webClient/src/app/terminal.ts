@@ -72,7 +72,7 @@ export class Terminal {
   }
 
   isConnected(): boolean {
-    return this.virtualScreen;
+    return !!this.virtualScreen;
   }
 
   
