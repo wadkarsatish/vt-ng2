@@ -10,21 +10,21 @@
   Copyright Contributors to the Zowe Project.
 */
 
-import { AfterViewInit, Component, ElementRef, ViewChild, Inject, Optional } from '@angular/core';
-import {HttpClient} from '@angular/common/http';
-import {Observable} from 'rxjs';
+import { AfterViewInit, Component, ElementRef, ViewChild, Inject, Optional, OnInit, ChangeDetectorRef } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { Observable } from 'rxjs';
 
 import { FormGroup, FormControl } from '@angular/forms';
 
 import { Angular2InjectionTokens, Angular2PluginWindowActions, Angular2PluginViewportEvents, ContextMenuItem } from 'pluginlib/inject-resources';
 
-import {Terminal, TerminalWebsocketError} from './terminal';
-import {ConfigServiceTerminalConfig, TerminalConfig, ZssConfig} from './terminal.config';
+import { Terminal, TerminalWebsocketError } from './terminal';
+import { ConfigServiceTerminalConfig, TerminalConfig, ZssConfig } from './terminal.config';
 
 const TOGGLE_MENU_BUTTON_PX = 16; //with padding
 const CONFIG_MENU_ROW_PX = 40;
 const CONFIG_MENU_PAD_PX = 4;
-const CONFIG_MENU_SIZE_PX = CONFIG_MENU_ROW_PX+CONFIG_MENU_PAD_PX; //40 per row, plus 2 px padding
+const CONFIG_MENU_SIZE_PX = CONFIG_MENU_ROW_PX + CONFIG_MENU_PAD_PX; //40 per row, plus 2 px padding
 
 
 enum ErrorType {
@@ -35,13 +35,13 @@ enum ErrorType {
 }
 
 class ErrorState {
-  private stateArray: Array<string|null> = new Array<string|null>();
+  private stateArray: Array<string | null> = new Array<string | null>();
 
-  set(type: ErrorType, message: string|null) {
+  set(type: ErrorType, message: string | null) {
     this.stateArray[type] = message;
   }
 
-  get(type:ErrorType): string|null {
+  get(type: ErrorType): string | null {
     return this.stateArray[type];
   }
 
@@ -51,14 +51,14 @@ class ErrorState {
 
   //should it block connection
   isStateBlocking(): boolean {
-    if (this.stateArray[ErrorType.host] || this.stateArray[ErrorType.port]){
+    if (this.stateArray[ErrorType.host] || this.stateArray[ErrorType.port]) {
       return true;
     }
     return false;
   }
 
 
-  getFirstError(): string|null {
+  getFirstError(): string | null {
     for (let i = 0; i < this.stateArray.length; i++) {
       if (this.stateArray[i]) {
         return this.stateArray[i];
@@ -73,16 +73,13 @@ class ErrorState {
   templateUrl: './app.component.html',
   styleUrls: ['./app.component.css']
 })
-export class AppComponent implements AfterViewInit {
+export class AppComponent implements OnInit, AfterViewInit {
   @ViewChild('terminal')
   terminalElementRef: ElementRef;
   @ViewChild('terminalParent')
   terminalParentElementRef: ElementRef;
   terminal: Terminal;
   name = new FormControl('');
-  host = new FormControl('');
-  port = new FormControl<Number>(0);
-  securityType = new FormControl('');
   connectionSettings: any;
   errorMessage: string = '';
   terminalDivStyle: any = {};
@@ -93,12 +90,7 @@ export class AppComponent implements AfterViewInit {
   private savedSettings: TerminalConfig;
   interval: any;
   timer: any;
-
-  // terminalForm: any = new FormGroup({
-  //   host: new FormControl(''),
-  //   port: new FormControl(''),
-  //   securityType: new FormControl('')
-  // });
+  terminalForm: FormGroup;
 
   constructor(
     @Inject(Angular2InjectionTokens.LOGGER) private log: ZLUX.ComponentLogger,
@@ -106,114 +98,139 @@ export class AppComponent implements AfterViewInit {
     @Inject(Angular2InjectionTokens.VIEWPORT_EVENTS) private viewportEvents: Angular2PluginViewportEvents,
     @Optional() @Inject(Angular2InjectionTokens.WINDOW_ACTIONS) private windowActions: Angular2PluginWindowActions,
     @Inject(Angular2InjectionTokens.LAUNCH_METADATA) private launchMetadata: any,
-    @Inject(HttpClient) private http: HttpClient
+    @Inject(HttpClient) private http: HttpClient,
+    @Inject(ChangeDetectorRef) private cr: ChangeDetectorRef
   ) {
+
+    this.terminalForm = new FormGroup({
+      host: new FormControl(''),
+      port: new FormControl(''),
+      securityType: new FormControl('')
+    });
+
     this.log.debug("Component Constructor");
-    this.log.info('Recvd launch metadata='+JSON.stringify(launchMetadata));
+    this.log.info('Recvd launch metadata=' + JSON.stringify(launchMetadata));
     if (launchMetadata != null && launchMetadata.data) {
       switch (launchMetadata.data.type) {
-      case "connect":
-        if (launchMetadata.data.connectionSettings) {
-          let cs = launchMetadata.data.connectionSettings;
-            this.host.setValue(cs.host);
-            this.port.setValue(cs.port);
-          this.connectionSettings = cs;
-        } else {
-
-        }
-      default:
+        case "connect":
+          if (launchMetadata.data.connectionSettings) {
+            let cs = launchMetadata.data.connectionSettings;
+            this.terminalForm.patchValue({
+              host: cs.host,
+              port: cs.port,
+            })
+            // this.host.setValue(cs.host);
+            // this.port.setValue(cs.port);
+            this.connectionSettings = cs;
+          }
+        default:
 
       }
     }
     this.adjustTerminal(TOGGLE_MENU_BUTTON_PX);
 
     //defaulting initializations
-    if (!this.host.value) this.host.setValue("localhost");
-    if (!this.port.value) this.port.setValue(23);
-    if (!this.securityType.value) this.securityType.setValue("0");
+    if (!this.getFormControlValue('host')) this.setFormControlValue('host', "localhost");
+    if (!this.getFormControlValue('port')) this.setFormControlValue('port', 23);
+    if (!this.getFormControlValue('securityType')) this.setFormControlValue('securityType', "0");
 
+    this.terminalForm.valueChanges.subscribe((res) => {
+      console.log(res);
+    })
 
     setInterval(() => {
       this.timer = new Date();
     }, 1000);
   }
 
+  private getFormControlValue(key: string): any {
+    return this.terminalForm.get(key)?.value;
+  }
+
+  private setFormControlValue(key: string, value: any): void {
+    this.terminalForm.get(key).setValue(value);
+    this.terminalForm.updateValueAndValidity();
+  }
+
   ngOnInit(): void {
     if (this.windowActions) {
       this.windowActions.setTitle(`VT - Disconnected`);
     }
-    this.viewportEvents.registerCloseHandler(():Promise<void>=> {
-      return new Promise((resolve,reject)=> {
+    this.viewportEvents.registerCloseHandler((): Promise<void> => {
+      return new Promise((resolve, reject) => {
         this.ngOnDestroy();
         resolve();
       });
     });
 
-    // this.interval = setInterval(() => {
-    //   console.log('manual detectChanges');
-    //   this.ref.markForCheck();
-    // }, 500);
+    this.terminalForm.get('host').valueChanges.subscribe((val: string) => this.validateHost(val));
+    this.terminalForm.get('port').valueChanges.subscribe((val: number) => this.validatePort(val));
+
+    setInterval(() => {
+      this.cr.detectChanges();
+    }, 1000);    
   }
 
   ngAfterViewInit(): void {
-    let log:ZLUX.ComponentLogger = this.log;
+    let log: ZLUX.ComponentLogger = this.log;
     log.info('START: vt ngAfterViewInit');
     let dispatcher: ZLUX.Dispatcher = ZoweZLUX.dispatcher;
-    log.info("JOE.vt app comp, dispatcher="+dispatcher);
+    log.info("JOE.vt app comp, dispatcher=" + dispatcher);
     const terminalElement = this.terminalElementRef.nativeElement;
     const terminalParentElement = this.terminalParentElementRef.nativeElement;
     this.terminal = new Terminal(terminalElement, terminalParentElement, this.pluginDefinition, this.log);
     this.viewportEvents.resized.subscribe(() => this.terminal.performResize());
     if (this.windowActions) {
-      this.terminal.contextMenuEmitter.subscribe( (info) => {
-        let screenContext:any = info.screenContext;
+      this.terminal.contextMenuEmitter.subscribe((info) => {
+        let screenContext: any = info.screenContext;
         screenContext["sourcePluginID"] = this.pluginDefinition.getBasePlugin().getIdentifier();
-        log.info("app.comp subcribe lambda, dispatcher="+dispatcher);
-        let recognizers:any[] = dispatcher.getRecognizers(screenContext);
-        log.info("recoginzers "+recognizers);
-        let menuItems:ContextMenuItem[] = [];
-        for (let recognizer of recognizers){
+        log.info("app.comp subcribe lambda, dispatcher=" + dispatcher);
+        let recognizers: any[] = dispatcher.getRecognizers(screenContext);
+        log.info("recoginzers " + recognizers);
+        let menuItems: ContextMenuItem[] = [];
+        for (let recognizer of recognizers) {
           let action = dispatcher.getAction(recognizer);
-          log.debug("Recognizer="+JSON.stringify(recognizer)+" action="+action);
-          if (action){
+          log.debug("Recognizer=" + JSON.stringify(recognizer) + " action=" + action);
+          if (action) {
             let menuCallback = () => {
-              dispatcher.invokeAction(action,info.screenContext);
+              dispatcher.invokeAction(action, info.screenContext);
             }
             // menu items can also have children
-            menuItems.push({text: action.getDefaultName(), action: menuCallback});
+            menuItems.push({ text: action.getDefaultName(), action: menuCallback });
           }
         }
         this.windowActions.spawnContextMenu(info.x, info.y, menuItems);
       });
     }
-    let rendererSettings:any = {
+    let rendererSettings: any = {
       fontProperties: {
         size: 14
       }
     }
-    this.terminal.wsErrorEmitter.subscribe((error: TerminalWebsocketError)=> this.onWSError(error));
+    this.terminal.wsErrorEmitter.subscribe((error: TerminalWebsocketError) => this.onWSError(error));
     if (!this.connectionSettings) {
       this.loadConfig().subscribe((config: ConfigServiceTerminalConfig) => {
         if (config.contents.security) {
           if (config.contents.security.type === "ssh") {
-            this.securityType.setValue("1");
+            this.setFormControlValue('securityType', "1");
           } else if (config.contents.security.type === "telnet") {
-            this.securityType.setValue("0");
+            this.setFormControlValue('securityType', "0");
           }
         }
-        this.host.setValue(config.contents.host);
-        this.port.setValue(config.contents.port);
+
+        this.setFormControlValue('host', config.contents.host);
+        this.setFormControlValue('port', config.contents.port);
         this.checkZssProxy().then(() => {
           this.connectionSettings = {
-            host: this.host.value,
-            port: this.port.value,
+            host: this.getFormControlValue('host'),
+            port: this.getFormControlValue('port'),
             security: {
-              type: Number(this.securityType.value)
+              type: Number(this.getFormControlValue('securityType'))
             }
           }
-        this.connectAndSetTitle(rendererSettings, this.connectionSettings);
+          this.connectAndSetTitle(rendererSettings, this.connectionSettings);
         });
-      }, (error)=> {
+      }, (error) => {
         if (error.status && error.statusText) {
           this.setError(ErrorType.config, `Config load status=${error.status}, text=${error.statusText}`);
         } else {
@@ -233,18 +250,18 @@ export class AppComponent implements AfterViewInit {
   }
 
   private onWSError(error: TerminalWebsocketError): void {
-    let message = "Terminal closed due to websocket error. Code="+error.code;
-    this.log.warn(message+", Reason="+error.reason);
+    let message = "Terminal closed due to websocket error. Code=" + error.code;
+    this.log.warn(message + ", Reason=" + error.reason);
     this.setError(ErrorType.websocket, message);
     this.disconnectAndUnsetTitle();
   }
 
-  private setError(type: ErrorType, message: string):void {
+  private setError(type: ErrorType, message: string): void {
     this.currentErrors.set(type, message);
     this.refreshErrorBar();
   }
 
-  private clearError(type: ErrorType):void {
+  private clearError(type: ErrorType): void {
     let hadError = this.currentErrors.get(type);
     this.currentErrors.set(type, null);
     if (hadError) {
@@ -252,7 +269,7 @@ export class AppComponent implements AfterViewInit {
     }
   }
 
-  private clearAllErrors():void {
+  private clearAllErrors(): void {
     this.currentErrors.clear();
     if (this.errorMessage.length > 0) {
       this.refreshErrorBar();
@@ -277,7 +294,7 @@ export class AppComponent implements AfterViewInit {
     }
   }
 
-  toggleMenu(state:boolean): void {
+  toggleMenu(state: boolean): void {
     this.showMenu = state;
     this.adjustTerminal(state ? CONFIG_MENU_SIZE_PX : -CONFIG_MENU_SIZE_PX);
   }
@@ -289,29 +306,29 @@ export class AppComponent implements AfterViewInit {
       height: `calc(100% - ${this.terminalHeightOffset}px)`
     };
     if (this.terminal) {
-      setTimeout(()=> {
+      setTimeout(() => {
         this.terminal.performResize();
-      },100);
+      }, 100);
     }
   }
 
   /* I expect a JSON here*/
   zluxOnMessage(eventContext: any): Promise<any> {
-    return new Promise((resolve,reject)=> {
+    return new Promise((resolve, reject) => {
       if (!eventContext || !eventContext.data) {
         return reject('Event context missing or malformed');
       }
       switch (eventContext.data.type) {
-      case 'disconnect':
-        resolve(this.disconnectAndUnsetTitle());
-        break;
-      case 'connectionInfo':
-        let hostInfo = this.terminal.virtualScreen.hostInfo;
-        this.log.debug('Hostinfo='+JSON.stringify(hostInfo));
-        resolve(hostInfo);
-        break;
-      default:
-        reject('Event context missing or unknown data.type');
+        case 'disconnect':
+          resolve(this.disconnectAndUnsetTitle());
+          break;
+        case 'connectionInfo':
+          let hostInfo = this.terminal.virtualScreen.hostInfo;
+          this.log.debug('Hostinfo=' + JSON.stringify(hostInfo));
+          resolve(hostInfo);
+          break;
+        default:
+          reject('Event context missing or unknown data.type');
       };
     });
   }
@@ -327,16 +344,16 @@ export class AppComponent implements AfterViewInit {
 
   checkZssProxy(): Promise<any> {
     return new Promise((resolve, reject) => {
-      if (this.host.value === "") {
+      if (this.getFormControlValue('host') === "") {
         this.loadZssSettings().subscribe((zssSettings: ZssConfig) => {
-          this.host.setValue(zssSettings.zssServerHostName);
-          resolve(this.host.value);
+          this.setFormControlValue('host', zssSettings.zssServerHostName);//this.host.setValue(zssSettings.zssServerHostName);
+          resolve(this.getFormControlValue('host'));
         }, () => {
-          this.setError(ErrorType.host, "Invalid Hostname: \"" + this.host.value + "\".")
-          reject(this.host.value)
+          this.setError(ErrorType.host, "Invalid Hostname: \"" + this.getFormControlValue('host') + "\".")
+          reject(this.getFormControlValue('host'))
         });
       } else {
-        resolve(this.host.value);
+        resolve(this.getFormControlValue('host'));
       }
     });
   }
@@ -347,15 +364,15 @@ export class AppComponent implements AfterViewInit {
     } else {
       this.clearAllErrors(); //reset due to user interaction
       this.connectAndSetTitle({
-          fontProperties: {
-            size: 14
-          }
-        },
+        fontProperties: {
+          size: 14
+        }
+      },
         {
-          host: this.host.value,
-          port: this.port.value,
+          host: this.getFormControlValue('host'),
+          port: this.getFormControlValue('port'),
           security: {
-            type: Number(this.securityType.value)
+            type: Number(this.getFormControlValue('securityType'))
           }
         });
     }
@@ -363,10 +380,10 @@ export class AppComponent implements AfterViewInit {
 
   private disconnectAndUnsetTitle() {
     this.terminal.close();
-    if (this.windowActions) {this.windowActions.setTitle(`VT - Disconnected`);}
+    if (this.windowActions) { this.windowActions.setTitle(`VT - Disconnected`); }
   }
 
-  private connectAndSetTitle(rendererSettings: any, connectionSettings:any) {
+  private connectAndSetTitle(rendererSettings: any, connectionSettings: any) {
     if (this.windowActions) {
       this.windowActions.setTitle(`VT - ${connectionSettings.host}:${connectionSettings.port}`);
     }
@@ -398,6 +415,7 @@ export class AppComponent implements AfterViewInit {
     } else {
       this.clearError(ErrorType.port);
     }
+    console.log('validatePort', this.terminalForm.value)
   }
 
   validateHost(host: string): void {
@@ -406,11 +424,12 @@ export class AppComponent implements AfterViewInit {
     } else {
       this.clearError(ErrorType.host);
     }
+    console.log('validateHost', this.terminalForm.value)
   }
 
   loadConfig(): Observable<ConfigServiceTerminalConfig> {
     this.log.warn("Config load is wrong and not abstracted");
-    return this.http.get<ConfigServiceTerminalConfig>(ZoweZLUX.uriBroker.pluginConfigForScopeUri(this.pluginDefinition.getBasePlugin(),'user','sessions','_defaultVT.json'));
+    return this.http.get<ConfigServiceTerminalConfig>(ZoweZLUX.uriBroker.pluginConfigForScopeUri(this.pluginDefinition.getBasePlugin(), 'user', 'sessions', '_defaultVT.json'));
   }
 
   loadZssSettings(): Observable<ZssConfig> {
@@ -419,14 +438,14 @@ export class AppComponent implements AfterViewInit {
 
 
   saveSettings() {
-    let securityType = this.securityType.value == "1" ? "ssh" : "telnet";
+    let securityType = this.getFormControlValue('securityType') == "1" ? "ssh" : "telnet";
     this.http.put(ZoweZLUX.uriBroker.pluginConfigForScopeUri(this.pluginDefinition.getBasePlugin(), 'user', 'sessions', '_defaultVT.json'),
       {
         security: {
           type: securityType
         },
-        port: this.port.value,
-        host: this.host.value,
+        port: this.getFormControlValue('port'),
+        host: this.getFormControlValue('host'),
       }
     ).subscribe((res) => this.log.debug('Save returned'));
   }

@@ -14,7 +14,7 @@ var path = require('path');
 var CopyWebpackPlugin = require('copy-webpack-plugin');
 const CompressionPlugin = require('compression-webpack-plugin');
 const baseConfig = require(path.resolve(process.env.MVD_DESKTOP_DIR, 'plugin-config/webpack5.base.js'));
-
+const AotPlugin = require('@ngtools/webpack').AngularWebpackPlugin;
 
 if (process.env.MVD_DESKTOP_DIR == null) {
   throw new Error('You must specify MVD_DESKTOP_DIR in your environment');
@@ -27,7 +27,21 @@ var config = {
   ],
   'output': {
     'path': path.resolve(__dirname, '../web'),
-    'filename': 'main.js',
+    'filename': '[name].js',
+  },
+  module: {
+    rules: [
+      {
+        test: /(?:\.ngfactory\.js|\.ngstyle\.js|\.ts)$/,
+        use: [
+          {
+            loader: '@ngtools/webpack',
+          },
+        ],
+
+      },
+      { test: /\.css$/, loader: 'raw-loader' }
+    ]
   },
   'plugins': [
     new CopyWebpackPlugin([
@@ -39,6 +53,10 @@ var config = {
     new CompressionPlugin({
       threshold: 100000,
       minRatio: 0.8
+    }),
+    new AotPlugin({
+      tsConfigPath: './tsconfig.json',
+      entryModule: './webClient/src/app/app.module.ts#AppModule'
     })
   ]
 };
@@ -50,7 +68,7 @@ function deepMerge(base, extension) {
         if (!base[key]) base[key] = {};
         deepMerge(base[key], extension[key]);
       } else {
-        Object.assign(base, {[key]: extension[key]});
+        Object.assign(base, { [key]: extension[key] });
       }
     }
   }

@@ -1,5 +1,3 @@
-
-
 <!--
   This program and the accompanying materials are
   made available under the terms of the Eclipse Public License v2.0 which accompanies
@@ -9,48 +7,42 @@
 
   Copyright Contributors to the Zowe Project.
 -->
-
 <div class="vt-parent" #terminalParent>
-  <label for="name">Name: </label>
-  <input id="name" type="text" [formControl]="name">
-  <p>Value: {{ name.value }}</p>
-  <!-- <form [formGroup]="terminalForm" (ngSubmit)="saveSettings()"> -->
   @if(!showMenu){
   <button class="toggle-menu expand-menu" type="button" (click)="toggleMenu(true)"></button>
   }
   @if(showMenu){
   <button class="toggle-menu contract-menu" type="button" (click)="toggleMenu(false)"></button>
 
-  <div class="toolbar">
-    <div class="form-group toolbar-row">
-      <label class="col-sm-1 col-form-label">Host</label>
-      <div class="toolbar-input col-sm-2">
-        <input type="text" class="form-control" (input)="validateHost($event.target.value)" [formControl]="host"
-          id="host">
+  <form [formGroup]="terminalForm" (ngSubmit)="saveSettings()">
+    <div class="toolbar">
+      <div class="form-group toolbar-row">
+        <label class="col-sm-1 col-form-label">Host</label>
+        <div class="toolbar-input col-sm-2">
+          <input type="text" class="form-control" formControlName="host">
+        </div>
+        <label class="col-sm-1 col-form-label">Port</label>
+        <div class="toolbar-input col-sm-1">
+          <input type="number" class="form-control" formControlName="port">
+        </div>
+        <label class="col-sm-1 col-form-label">Type</label>
+        <div class="toolbar-input col-sm-2">
+          <select formControlName="securityType" id="securityType" class="form-control">
+            <option value="0">Telnet</option>
+            <option value="1">SSH</option>
+          </select>
+        </div>
+        <div class="terminal-button">
+          <button type="button" class="power-toggle-button btn" [style.background-color]="powerButtonColor"
+            [disabled]="disableButton" (click)="toggleConnection()"></button>
+        </div>
+        <button class="save-button" type="submit" (click)="saveSettings()">
+          <i class="fa fa-save"></i>
+        </button>
       </div>
-      <label class="col-sm-1 col-form-label">Port</label>
-      <div class="toolbar-input col-sm-1">
-        <input type="number" class="form-control" (input)="validatePort($event.target.value)" [formControl]="port"
-          id="port">
-      </div>
-      <label class="col-sm-1 col-form-label">Type</label>
-      <div class="toolbar-input col-sm-2">
-        <select [formControl]="securityType" id="securityType" class="form-control">
-          <option value="0">Telnet</option>
-          <option value="1">SSH</option>
-        </select>
-      </div>
-      <div class="terminal-button">
-        <button type="button" class="power-toggle-button btn" [style.background-color]="powerButtonColor"
-          [disabled]="disableButton" (click)="toggleConnection()"></button>
-      </div>
-      <button class="save-button" type="submit" (click)="saveSettings()">
-        <i class="fa fa-save"></i>
-      </button>
     </div>
-  </div>
+  </form>
   }
-  <!-- </form> -->
   @if(errorMessage.length){
   <div class="toolbar" style="height:40px">
     <div class="row toolbar-row">
@@ -58,18 +50,17 @@
     </div>
   </div>
   }
-  host:{{host.value}}
-  port:{{port.value}}
-  securityType:{{securityType.value}}
+  host:{{terminalForm.value}}
+  port:{{terminalForm.get('port').value}}
+  <!-- securityType:{{securityType.value}} -->
   terminalDivStyle:{{terminalDivStyle?.top}}:{{terminalDivStyle?.height}}
   <div>
     Timer:{{timer}}
   </div>
-  <div class="vt" [ngStyle]="{'top':terminalDivStyle?.top, 'height':terminalDivStyle?.height}">
-    <div #terminal>
-    </div>
+  <div class="vt" [ngStyle]="{'top':terminalDivStyle?.top, 'height':terminalDivStyle?.height}" #terminal>
   </div>
 </div>
+<include-external-css></include-external-css>
 
 <!--
   This program and the accompanying materials are
