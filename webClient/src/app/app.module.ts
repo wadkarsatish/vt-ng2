@@ -11,11 +11,13 @@
 */
 
 import { CommonModule } from '@angular/common';
-import { FormsModule } from '@angular/forms';
-import { NgModule } from '@angular/core';
 
+import { provideHttpClient } from '@angular/common/http';
+import { NgModule } from '@angular/core';
+import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 
 import { AppComponent } from './app.component';
+import { IncludeExternalCssComponent } from './include-external-css.component';
 
 @NgModule({
   declarations: [
@@ -23,10 +25,13 @@ import { AppComponent } from './app.component';
   ],
   imports: [
     CommonModule,
-    FormsModule
+    ReactiveFormsModule,
+    FormsModule,
+    IncludeExternalCssComponent
   ],
-  providers: [],
-  entryComponents: [AppComponent]
+  providers: [
+    provideHttpClient()
+  ]
 })
 export class AppModule { }
 
