@@ -37,8 +37,8 @@ var config = {
         use: ['@ngtools/webpack']
       },
       {
-        test: /\.css$/, 
-        loader: 'raw-loader'
+        test: /\.css$/i,
+        use: ["style-loader", "css-loader"],
       }
     ]
   },
