@@ -9,7 +9,8 @@
 
   Copyright Contributors to the Zowe Project.
 */
-@import url('../../node_modules/bootstrap/dist/css/bootstrap.min.css');
+@import url('~bootstrap/dist/css/bootstrap.min.css');
+@import url('../styles.css');
 
 .toggle-menu {
   width: 100%;

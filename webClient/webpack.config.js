@@ -10,8 +10,8 @@
   Copyright Contributors to the Zowe Project.
 */
 
-var path = require('path');
-var CopyWebpackPlugin = require('copy-webpack-plugin');
+const path = require('path');
+const CopyWebpackPlugin = require('copy-webpack-plugin');
 const CompressionPlugin = require('compression-webpack-plugin');
 const baseConfig = require(path.resolve(process.env.MVD_DESKTOP_DIR, 'plugin-config/webpack5.base.js'));
 const AotPlugin = require('@ngtools/webpack').AngularWebpackPlugin;
@@ -20,7 +20,7 @@ if (process.env.MVD_DESKTOP_DIR == null) {
   throw new Error('You must specify MVD_DESKTOP_DIR in your environment');
 }
 
-var config = {
+const config = {
   devtool: 'source-map',
   entry: [
     path.resolve(__dirname, './src/plugin.ts')
@@ -29,6 +29,11 @@ var config = {
     path: path.resolve(__dirname, '../web'),
     filename: '[name].js',
     clean: true
+  },
+  resolve: {
+    alias: {
+      '~': path.resolve(__dirname, './node_modules/'),
+    }
   },
   module: {
     rules: [
@@ -43,12 +48,14 @@ var config = {
     ]
   },
   plugins: [
-    new CopyWebpackPlugin([
-      {
-        from: path.resolve(__dirname, './src/assets'),
-        to: path.resolve('../web/assets')
-      }
-    ]),
+    new CopyWebpackPlugin({
+      patterns: [
+        {
+          from: path.resolve(__dirname, './src/assets/icon.png'),
+          to: path.resolve('../web/assets/icon.png')
+        }
+      ]
+    }),
     new CompressionPlugin({
       threshold: 100000,
       minRatio: 0.8

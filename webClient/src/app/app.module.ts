@@ -14,10 +14,9 @@ import { CommonModule } from '@angular/common';
 
 import { provideHttpClient } from '@angular/common/http';
 import { NgModule } from '@angular/core';
-import { FormsModule, ReactiveFormsModule } from '@angular/forms';
+import { FormsModule } from '@angular/forms';
 
 import { AppComponent } from './app.component';
-import { IncludeExternalCssComponent } from './include-external-css.component';
 
 @NgModule({
   declarations: [
@@ -25,9 +24,7 @@ import { IncludeExternalCssComponent } from './include-external-css.component';
   ],
   imports: [
     CommonModule,
-    ReactiveFormsModule,
-    FormsModule,
-    IncludeExternalCssComponent
+    FormsModule
   ],
   providers: [
     provideHttpClient()
